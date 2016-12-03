@@ -33,6 +33,8 @@ public:
   const char *getPassName() const override {
     return "RISCV Assembly Printer";
   }
+	unsigned int checkForVectorPattern(const MachineBasicBlock &MBB);
+	void EmitFunctionBody();
   void EmitInstruction(const MachineInstr *MI) override;
   void EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) override;
   void printOperand(const MachineInstr *MI, int opNum, raw_ostream &O);
@@ -46,6 +48,7 @@ public:
   void EmitEndOfAsmFile(Module &M) override;
   bool runOnMachineFunction(MachineFunction &MF) override;
 };
+
 } // end namespace llvm
 
 #endif

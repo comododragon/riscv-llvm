@@ -22,8 +22,39 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "RISCVVectorInstrBuilder.h"
+// TODO: Remover
+#include <iostream>
 
 using namespace llvm;
+
+void RISCVAsmPrinter::EmitFunctionBody() {
+	RISCVVectorInstrBuilder builder;
+
+	for(unsigned int i = 0; i < MF->getNumBlockIDs(); i++) {
+		MachineBasicBlock *MBB = MF->getBlockNumbered(i);
+
+		if(builder.checkForVectorPatternRR(*MBB) || builder.checkForVectorPatternRI(*MBB) || builder.checkForVectorPatternIR(*MBB)) {
+			std::cout << "Found patterns!" << std::endl;
+			for(unsigned int j = 0; j < builder.getListSize(); j++) {
+				std::cout << "Block " << j << std::endl;
+				std::cout << " class " << builder.getClassAt(j) << std::endl;
+				std::cout << " startPoint " << builder.getStartPointAt(j) << std::endl;
+				std::cout << " blockSize " << builder.getBlockSizeAt(j) << std::endl;
+				std::cout << " opcode " << builder.getOpcodeAt(j) << std::endl;
+				std::cout << " xA " << builder.getXAAt(j) << std::endl;
+				std::cout << " xB " << builder.getXBAt(j) << std::endl;
+				std::cout << " xAIdx " << builder.getXAIdxAt(j) << std::endl;
+				std::cout << " xBIdx " << builder.getXBIdxAt(j) << std::endl;
+				std::cout << " xCIdx " << builder.getXCIdxAt(j) << std::endl;
+			}
+
+			builder.substituteAllMatches(MBB, Subtarget);
+		}
+	}
+
+	AsmPrinter::EmitFunctionBody();
+}
 
 void RISCVAsmPrinter::EmitInstruction(const MachineInstr *MI) {
   RISCVMCInstLower Lower(MF->getContext(), *this);
@@ -145,7 +176,9 @@ void RISCVAsmPrinter::EmitEndOfAsmFile(Module &M) {
 
 bool RISCVAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
   Subtarget = &MF.getSubtarget<RISCVSubtarget>();
-  return AsmPrinter::runOnMachineFunction(MF);
+	AsmPrinter::SetupMachineFunction(MF);
+	EmitFunctionBody();
+	return false;
 }
 
 // Force static initialization.

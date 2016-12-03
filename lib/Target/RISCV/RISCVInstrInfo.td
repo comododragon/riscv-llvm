@@ -427,4 +427,4 @@ include "RISCVInstrInfoM.td"
 include "RISCVInstrInfoF.td"
 include "RISCVInstrInfoA.td"
 include "RISCVInstrInfoD.td"
-
+include "RISCVInstrInfoXvec.td"

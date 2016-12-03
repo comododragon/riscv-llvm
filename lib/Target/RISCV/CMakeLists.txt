@@ -24,6 +24,7 @@ add_llvm_target(RISCVCodeGen
   RISCVSubtarget.cpp
   RISCVTargetMachine.cpp
   RISCVMachineFunctionInfo.cpp
+  RISCVVectorInstrBuilder.cpp
   )
 
 add_dependencies(LLVMRISCVCodeGen intrinsics_gen)
