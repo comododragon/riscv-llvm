@@ -91,6 +91,7 @@ unsigned int RISCVVectorInstrBuilder::getXCIdxAt(unsigned int i) {
 }
 
 /* Case 0: Arith between Reg and Reg */
+// TODO: Refazer nos moldes do PatternIR. Por sinal, se offset nao começar em zero no código, vai dar ruim na substituição
 bool RISCVVectorInstrBuilder::checkForVectorPatternRR(const MachineBasicBlock &MBB) {
 	bool rv = false;
 	unsigned int matchState = 0;
@@ -309,6 +310,7 @@ bool RISCVVectorInstrBuilder::checkForVectorPatternRR(const MachineBasicBlock &M
 }
 
 /* Case 1: Arith between Reg and Imm */
+// TODO: Refazer nos moldes do PatternIR. Por sinal, se offset nao começar em zero no código, vai dar ruim na substituição
 bool RISCVVectorInstrBuilder::checkForVectorPatternRI(const MachineBasicBlock &MBB) {
 	bool rv = false;
 	unsigned int matchState = 0;
@@ -496,8 +498,290 @@ bool RISCVVectorInstrBuilder::checkForVectorPatternRI(const MachineBasicBlock &M
 
 /* Case 2: Arith between Imm and Reg (non-commutative ops) */
 bool RISCVVectorInstrBuilder::checkForVectorPatternIR(const MachineBasicBlock &MBB) {
-	// TODO
-	return false;
+	bool rv = false;
+	unsigned int matchState = 0;
+	unsigned int point = 0;
+	bool overrideSlide = false;
+	unsigned int startPoint;
+	unsigned int opcode;
+	unsigned int offset;
+	unsigned int xA;
+	unsigned int xB;
+	unsigned int xAIdx;
+	unsigned int xBIdx;
+	unsigned int xCIdx;
+
+	/* Since this iterator is not bidirectional, we do this magic to have 4 instructions in hand */
+	auto MI = MBB.begin();
+	if(MI == MBB.end())
+		return false;
+	auto MI0 = MI++;
+	if(MI == MBB.end())
+		return false;
+	auto MI1 = MI++;
+	if(MI == MBB.end())
+		return false;
+	auto MI2 = MI++;
+	if(MI == MBB.end())
+		return false;
+	auto MI3 = MI++;
+
+	/* Iterate through all instructions */
+	while(true) {
+		unsigned int iOpcode;
+		unsigned int iOffset;
+		unsigned int ixA;
+		unsigned int ixB;
+		unsigned int ixAIdx;
+		unsigned int ixBIdx;
+		unsigned int ixCIdx;
+		bool operandsConsistent;
+		bool instructionsMatch;
+		bool registersMatch;
+		bool registersAreDifferent;
+		bool offsetsMatch;
+
+		/* Pattern state machine */
+		switch(matchState) {
+			/* State 0: Check for first block (LW; LI; OP; SW) */
+			case 0:
+				/* Check if all instructions are consistent regarding number of operands and their types */
+				/* If instructions are consistent, we can then check if everything fits */
+				if(
+					(3 == MI0->getNumOperands()) &&
+					(2 == MI1->getNumOperands()) &&
+					(3 == MI2->getNumOperands()) &&
+					(3 == MI3->getNumOperands()) &&
+					(MI0->getOperand(0).isReg() && MI0->getOperand(1).isImm() && MI0->getOperand(2).isReg()) &&
+					(MI1->getOperand(0).isReg() && MI1->getOperand(1).isImm()) &&
+					(MI2->getOperand(0).isReg() && MI2->getOperand(1).isReg() && MI2->getOperand(2).isReg()) &&
+					(MI3->getOperand(0).isReg() && MI3->getOperand(1).isImm() && MI3->getOperand(2).isReg())
+				) {
+					operandsConsistent = true;
+
+					/* Get arith opcode and operands for this block */
+					iOpcode = MI2->getOpcode();
+					iOffset = MI0->getOperand(1).getImm();
+					ixA = MI1->getOperand(0).getReg();
+					ixB = MI0->getOperand(0).getReg();
+					ixAIdx = MI1->getOperand(1).getImm();
+					ixBIdx = MI0->getOperand(2).getReg();
+					ixCIdx = MI3->getOperand(2).getReg();
+
+					/* Check if instructions match (LW; LI; ADD/SUB/...; SW) */
+					instructionsMatch =	(
+											(RISCV::LW == MI0->getOpcode()) &&
+											(RISCV::LI == MI1->getOpcode()) &&
+											(
+												(RISCV::ADD == iOpcode) ||
+												(RISCV::SUB == iOpcode) ||
+												(RISCV::SLL == iOpcode) ||
+												(RISCV::SLT == iOpcode) ||
+												(RISCV::SLTU == iOpcode) ||
+												(RISCV::XOR == iOpcode) ||
+												(RISCV::SRL == iOpcode) ||
+												(RISCV::SRA == iOpcode) ||
+												(RISCV::OR == iOpcode) ||
+												(RISCV::AND == iOpcode)
+											) &&
+											(RISCV::SW == MI3->getOpcode())
+										);
+
+					/* Check if registers match */
+					registersMatch =	(
+											(ixB == MI2->getOperand(0).getReg()) &&
+											(ixA == MI2->getOperand(1).getReg()) &&
+											(ixB == MI2->getOperand(2).getReg()) &&
+											(ixB == MI3->getOperand(0).getReg())
+										);
+
+					/* Check if found registers are different among them */
+					registersAreDifferent =	(
+												(ixA != ixB) &&
+												(ixA != ixBIdx) &&
+												(ixA != ixCIdx) &&
+												(ixB != ixBIdx) &&
+												(ixB != ixCIdx) &&
+												(ixBIdx != ixCIdx)
+											);
+
+					/* Check if address offset matches */
+					offsetsMatch =	(
+										(0 == iOffset) &&
+										(iOffset == MI3->getOperand(1).getImm())
+									);
+				}
+				else {
+					operandsConsistent = false;
+				}
+
+				/* If all matches are true, we found a block! */
+				if(operandsConsistent && instructionsMatch && registersMatch && registersAreDifferent && offsetsMatch) {
+					/* Save information */
+					startPoint = point;
+					opcode = iOpcode;
+					offset = iOffset;
+					xA = ixA;
+					xB = ixB;
+					xAIdx = ixAIdx;
+					xBIdx = ixBIdx;
+					xCIdx = ixCIdx;
+	
+					/* Head to next state */
+					matchState = 1;
+				}
+				break;
+			/* State 1: Jump a block of instructions */
+			case 1:
+				/* Since we already found the first block with 4 valid instructions, */
+				/* we need to slide over 4 instructions before analysing again */
+				if(4 == (point - startPoint)) {
+					overrideSlide = true;
+					matchState = 2;
+				}
+				break;
+			/* State 2: Check for non-first blocks (LW; OP; SW) */
+			case 2:
+				/* Check if all instructions are consistent regarding number of operands and their types */
+				/* If instructions are consistent, we can then check if everything fits */
+				if(
+					(3 == MI0->getNumOperands()) &&
+					(3 == MI1->getNumOperands()) &&
+					(3 == MI2->getNumOperands()) &&
+					(MI0->getOperand(0).isReg() && MI0->getOperand(1).isImm() && MI0->getOperand(2).isReg()) &&
+					(MI1->getOperand(0).isReg() && MI1->getOperand(1).isReg() && MI1->getOperand(2).isReg()) &&
+					(MI2->getOperand(0).isReg() && MI2->getOperand(1).isImm() && MI2->getOperand(2).isReg())
+				) {
+					operandsConsistent = true;
+
+					/* Get arith opcode and operands for this block */
+					iOpcode = MI1->getOpcode();
+					iOffset = MI0->getOperand(1).getImm();
+					ixA = MI1->getOperand(1).getReg();
+					ixB = MI0->getOperand(0).getReg();
+					ixBIdx = MI0->getOperand(2).getReg();
+					ixCIdx = MI2->getOperand(2).getReg();
+
+					/* Check if instructions match (LW; ADD/SUB/...; SW) */
+					instructionsMatch =	(
+											(RISCV::LW == MI0->getOpcode()) &&
+											(
+												(RISCV::ADD == iOpcode) ||
+												(RISCV::SUB == iOpcode) ||
+												(RISCV::SLL == iOpcode) ||
+												(RISCV::SLT == iOpcode) ||
+												(RISCV::SLTU == iOpcode) ||
+												(RISCV::XOR == iOpcode) ||
+												(RISCV::SRL == iOpcode) ||
+												(RISCV::SRA == iOpcode) ||
+												(RISCV::OR == iOpcode) ||
+												(RISCV::AND == iOpcode)
+											) &&
+											(RISCV::SW == MI2->getOpcode())
+										);
+
+					/* Check if registers match */
+					registersMatch =	(
+											(ixB == MI1->getOperand(0).getReg()) &&
+											(ixB == MI1->getOperand(2).getReg()) &&
+											(ixB == MI2->getOperand(0).getReg())
+										);
+
+					/* Check if found registers are different among them */
+					registersAreDifferent =	(
+												(ixA != ixB) &&
+												(ixA != ixBIdx) &&
+												(ixA != ixCIdx) &&
+												(ixB != ixBIdx) &&
+												(ixB != ixCIdx) &&
+												(ixBIdx != ixCIdx)
+											);
+
+					/* Check if address offset matches */
+					offsetsMatch =	(
+										(iOffset == MI2->getOperand(1).getImm())
+									);
+				}
+				else {
+					operandsConsistent = false;
+				}
+
+				/* If all matches are true, we found a block! */
+				if(operandsConsistent && instructionsMatch && registersMatch && registersAreDifferent && offsetsMatch) {
+					/* Update offset */
+					offset += 4;
+
+					/* If any of these differs, it means that this match is over */
+					if(
+						(opcode != iOpcode) ||
+						(xA != ixA) || (xB != ixB) ||
+						(xBIdx != ixBIdx) || (xCIdx != ixCIdx) ||
+						(offset != iOffset)
+					) {
+						/* We're finished with this match. Save information to the lists */
+						classVec.push_back(MatchClass::IR);
+						startPointVec.push_back(startPoint);
+						blockSizeVec.push_back(((point - (startPoint + 4)) / 3) + 1);
+						opcodeVec.push_back(opcode);
+						xAVec.push_back(xA);
+						xBVec.push_back(xB);
+						xAIdxVec.push_back(xAIdx);
+						xBIdxVec.push_back(xBIdx);
+						xCIdxVec.push_back(xCIdx);
+
+						rv = true;
+						overrideSlide = true;
+						matchState = 0;
+					}
+					else {
+						matchState = 3;
+					}
+				}
+				else {
+					/* We're finished with this match. Save information to the lists */
+					classVec.push_back(MatchClass::IR);
+					startPointVec.push_back(startPoint);
+					blockSizeVec.push_back(((point - (startPoint + 4)) / 3) + 1);
+					opcodeVec.push_back(opcode);
+					xAVec.push_back(xA);
+					xBVec.push_back(xB);
+					xAIdxVec.push_back(xAIdx);
+					xBIdxVec.push_back(xBIdx);
+					xCIdxVec.push_back(xCIdx);
+
+					rv = true;
+					overrideSlide = true;
+					matchState = 0;
+				}
+				break;
+			/* State 3: Jump a block of instructions */
+			case 3:
+				/* Since we found a block with 3 valid instructions, */
+				/* we need to slide over 3 instructions before analysing again */
+				if(!((point - (startPoint + 4)) % 3)) {
+					overrideSlide = true;
+					matchState = 2;
+				}
+				break;
+		}
+
+		/* Slide window (if no override was activated) */
+		if(!overrideSlide) {
+			MI0 = MI1;
+			MI1 = MI2;
+			MI2 = MI3;
+			if(MI == MBB.end())
+				return rv;
+			MI3 = MI++;
+
+			point++;
+		}
+		else {
+			overrideSlide = false;
+		}
+	}
+
+	return rv;
 }
 
 bool RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const RISCVSubtarget *Subtarget) {

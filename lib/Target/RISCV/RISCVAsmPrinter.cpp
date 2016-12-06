@@ -49,7 +49,7 @@ void RISCVAsmPrinter::EmitFunctionBody() {
 				std::cout << " xCIdx " << builder.getXCIdxAt(j) << std::endl;
 			}
 
-			builder.substituteAllMatches(MBB, Subtarget);
+			//builder.substituteAllMatches(MBB, Subtarget);
 		}
 	}
 
