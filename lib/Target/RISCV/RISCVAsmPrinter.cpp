@@ -34,7 +34,10 @@ void RISCVAsmPrinter::EmitFunctionBody() {
 	for(unsigned int i = 0; i < MF->getNumBlockIDs(); i++) {
 		MachineBasicBlock *MBB = MF->getBlockNumbered(i);
 
-		if(builder.checkForVectorPatternRR(*MBB) || builder.checkForVectorPatternRI(*MBB) || builder.checkForVectorPatternIR(*MBB)) {
+		bool rrFound = builder.checkForVectorPatternRR(*MBB);
+		bool riFound = builder.checkForVectorPatternRI(*MBB);
+		bool irFound = builder.checkForVectorPatternIR(*MBB);
+		if(rrFound || riFound || irFound) {
 			std::cout << "Found patterns!" << std::endl;
 			for(unsigned int j = 0; j < builder.getListSize(); j++) {
 				std::cout << "Block " << j << std::endl;

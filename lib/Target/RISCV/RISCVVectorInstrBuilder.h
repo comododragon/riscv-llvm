@@ -20,11 +20,11 @@ private:
 	std::vector<unsigned int> startPointVec;
 	std::vector<unsigned int> blockSizeVec;
 	std::vector<unsigned int> opcodeVec;
-	std::vector<unsigned int> xAVec;
-	std::vector<unsigned int> xBVec;
-	std::vector<unsigned int> xAIdxVec;
-	std::vector<unsigned int> xBIdxVec;
-	std::vector<unsigned int> xCIdxVec;
+	std::vector<int> xAVec;
+	std::vector<int> xBVec;
+	std::vector<int> xAIdxVec;
+	std::vector<int> xBIdxVec;
+	std::vector<int> xCIdxVec;
 	unsigned int rvRegs[32] = {
 		RISCV::zero, RISCV::ra, RISCV::sp, RISCV::gp, RISCV::tp, RISCV::t0, RISCV::t1, RISCV::t2,
 		RISCV::s0, RISCV::s1, RISCV::a0, RISCV::a1, RISCV::a2, RISCV::a3, RISCV::a4, RISCV::a5,
@@ -39,11 +39,11 @@ public:
 	unsigned int getBlockSizeAt(unsigned int i);
 	unsigned int getOpcodeAt(unsigned int i);
 	unsigned int getEqVectorOpcodeAt(unsigned int i);
-	unsigned int getXAAt(unsigned int i);
-	unsigned int getXBAt(unsigned int i);
-	unsigned int getXAIdxAt(unsigned int i);
-	unsigned int getXBIdxAt(unsigned int i);
-	unsigned int getXCIdxAt(unsigned int i);
+	int getXAAt(unsigned int i);
+	int getXBAt(unsigned int i);
+	int getXAIdxAt(unsigned int i);
+	int getXBIdxAt(unsigned int i);
+	int getXCIdxAt(unsigned int i);
 	bool checkForVectorPatternRR(const MachineBasicBlock &MBB);
 	bool checkForVectorPatternRI(const MachineBasicBlock &MBB);
 	bool checkForVectorPatternIR(const MachineBasicBlock &MBB);
