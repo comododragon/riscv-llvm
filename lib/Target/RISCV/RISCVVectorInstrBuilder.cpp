@@ -968,12 +968,73 @@ bool RISCVVectorInstrBuilder::checkForVectorPatternIR(const MachineBasicBlock &M
 	return rv;
 }
 
+/* Expansion macro: Insert 3 NOPs */
+#define EXPAND_3NOP() {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])\
+			.addReg(rvRegs[0]).addImm(0);\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])\
+			.addReg(rvRegs[0]).addImm(0);\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])\
+			.addReg(rvRegs[0]).addImm(0);\
+}
+
+/* Expansion macro: Insert an immediate vector arithmetic operation */
+#define EXPAND_OPIV(op, rc, ra, ib) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(op), rc)\
+			.addReg(ra).addImm(ib);\
+}
+
+/* Expansion macro: Insert a word store */
+#define EXPAND_SW(ra, off, rc) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::SW), ra)\
+			.addImm(off).addReg(rc);\
+}
+
+/* Expansion macro: Insert a vector arithmetic operation */
+#define EXPAND_OPV(op, rc, ra, rb) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(op), rc)\
+			.addReg(ra).addReg(rb);\
+}
+
+/* Expansion macro: Insert a word load */
+#define EXPAND_LW(rc, off, ra) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::LW), rc)\
+			.addImm(off).addReg(ra);\
+}
+
+/* Expansion macro: Insert an arithmetic operation */
+#define EXPAND_OP(op, rc, ra, rb) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(op), rc)\
+			.addReg(ra).addReg(rb);\
+}
+
+/* Expansion macro: Insert an immediate load */
+#define EXPAND_LI(rc, ia) {\
+	MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::LI), rc)\
+			.addImm(ia);\
+}
+
 bool RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const RISCVSubtarget *Subtarget) {
 	for(int i = (getListSize() - 1); i >= 0; i--) {
 		unsigned int j = 0;
+		bool isInside = false;
 		DebugLoc DL;
+
 		for(MachineBasicBlock::iterator MI = MBB->begin(); MI != MBB->end(); j++) {
-			if(j >= getStartPointAt(i) && j < (getStartPointAt(i) + (getBlockSizeAt(i) * 4))) {
+			// TODO: Implementar aqui dentro um limitante minimo para conversao (e.g. se for mt pequeno, n vale a pena desenrolar)
+			switch(getClassAt(i)) {
+				case RR:
+					isInside = (j >= getStartPointAt(i) && j < (getStartPointAt(i) + (getBlockSizeAt(i) * 4)));
+					break;
+				case RI:
+					isInside = (j >= getStartPointAt(i) && j < (getStartPointAt(i) + (getBlockSizeAt(i) * 3)));
+					break;
+				case IR:
+					isInside = (j >= getStartPointAt(i) && j < (getStartPointAt(i) + ((getBlockSizeAt(i) - 1) * 3) + 4));
+					break;
+			}
+
+			if(isInside) {
 				std::cout << "Removing " << MI->getOpcode() << " at position " << j << " with DebugLoc " << MI->getDebugLoc() << std::endl;
 				DL = MI->getDebugLoc();
 				MI = MBB->erase(MI);
@@ -982,110 +1043,138 @@ bool RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const
 				++MI;
 			}
 		}
+
 		j = 0;
 		for(MachineBasicBlock::iterator MI = MBB->begin(); MI != MBB->end(); j++) {
 			if(getStartPointAt(i) == j) {
-				/* Note: function calls are in reverse order! */
+				/* Calculate how many unrolls will be performed, since only XVEC_AVAIL_REGS are available at a time */
+				unsigned int opsAmt = std::ceil(getBlockSizeAt(i) / (double) XVEC_AVAIL_REGS);
+				unsigned int opsRem = getBlockSizeAt(i) % XVEC_AVAIL_REGS;
+				unsigned int opsCur;
+
+				/* Note: all instructions are added in reverse order! */
 				switch(getClassAt(i)) {
 					case RR:
 						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
+						EXPAND_3NOP();
 						/* ADDIV: Restore general purpose registers */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDIV), rvRegs[1])
-								.addReg(rvRegs[3]).addImm(0);
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[1], rvRegs[3], 0);
 						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						/* Store results */
-						for(int k = (getBlockSizeAt(i) - 1); k >= 0; k--) {
-							MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::SW), rvRegs[k])
-									.addImm(4 * k).addReg(getXCIdxAt(i));
-						}
-						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						/* Vector operation: c[] = a[] OP b[] */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(getEqVectorOpcodeAt(i)), rvRegs[1])
-								.addReg(rvRegs[1]).addReg(rvRegs[2]);
-						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						/* Load b[] operands */
-						for(int k = (getBlockSizeAt(i) - 1); k >= 0; k--) {
-							MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::LW), rvRegs[k])
-									.addImm(4 * k).addReg(getXBIdxAt(i));
-						}
-						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						/* ADDIV: Move a[] operands */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDIV), rvRegs[2])
-								.addReg(rvRegs[1]).addImm(0);
-						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						/* Load a[] operands */
-						for(int k = (getBlockSizeAt(i) - 1); k >= 0; k--) {
-							MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::LW), rvRegs[k])
-									.addImm(4 * k).addReg(getXAIdxAt(i));
+						EXPAND_3NOP();
+						for(int k = opsAmt - 1; k >= 0; k--) {
+							opsCur = ((opsAmt - 1) == (unsigned int) k)? opsRem : XVEC_AVAIL_REGS;
+
+							/* Store results */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_SW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[31]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Vector operation: c[] = a[] OP b[] */
+							EXPAND_OPV(getEqVectorOpcodeAt(i), rvRegs[1], rvRegs[2], rvRegs[1]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Load b[] operands */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_LW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[30]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* ADDIV: Move a[] operands */
+							EXPAND_OPIV(RISCV::ADDIV, rvRegs[2], rvRegs[1], 0);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Load a[] operands */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_LW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[29]);
 						}
 						/* Move c[] indexer to register 31 */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADD), rvRegs[31])
-								.addReg(getXCIdxAt(i)).addReg(rvRegs[0]);
+						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
 						/* Move b[] indexer to register 30 */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADD), rvRegs[30])
-								.addReg(getXBIdxAt(i)).addReg(rvRegs[0]);
+						EXPAND_OP(RISCV::ADD, rvRegs[30], getXBIdxAt(i), rvRegs[0]);
 						/* Move a[] indexer to register 29 */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADD), rvRegs[29])
-								.addReg(getXAIdxAt(i)).addReg(rvRegs[0]);
+						EXPAND_OP(RISCV::ADD, rvRegs[29], getXAIdxAt(i), rvRegs[0]);
 						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
+						EXPAND_3NOP();
 						/* ADDIV: Save general purpose registers */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDIV), rvRegs[3])
-								.addReg(rvRegs[1]).addImm(0);
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
 						/* Isolation of vector operation with 3 NOPs */
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
-						MI = BuildMI(*MBB, MI, DL, Subtarget->getInstrInfo()->get(RISCV::ADDI), rvRegs[0])
-								.addReg(rvRegs[0]).addImm(0);
+						EXPAND_3NOP();
 						break;
 					case RI:
-						// TODO
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* ADDIV: Restore general purpose registers */
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[1], rvRegs[3], 0);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						for(int k = opsAmt - 1; k >= 0; k--) {
+							opsCur = ((opsAmt - 1) == (unsigned int) k)? opsRem : XVEC_AVAIL_REGS;
+
+							/* Store results */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_SW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[31]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Vector operation: c[] = a[] OPI b */
+							EXPAND_OPIV(getEqVectorOpcodeAt(i), rvRegs[1], rvRegs[1], getXBAt(i));
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Load a[] operands */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_LW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[29]);
+						}
+						/* Move c[] indexer to register 31 */
+						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
+						/* Move a[] indexer to register 29 */
+						EXPAND_OP(RISCV::ADD, rvRegs[29], getXAIdxAt(i), rvRegs[0]);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* ADDIV: Save general purpose registers */
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
 						break;
 					case IR:
-						// TODO
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* ADDIV: Restore general purpose registers */
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[1], rvRegs[3], 0);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						for(int k = opsAmt - 1; k >= 0; k--) {
+							opsCur = ((opsAmt - 1) == (unsigned int) k)? opsRem : XVEC_AVAIL_REGS;
+
+							/* Store results */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_SW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[31]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Vector operation: c[] = a OP b[] */
+							EXPAND_OPV(getEqVectorOpcodeAt(i), rvRegs[1], rvRegs[2], rvRegs[1]);
+							/* Isolation of vector operation with 3 NOPs */
+							EXPAND_3NOP();
+							/* Load b[] operands */
+							for(int l = opsCur - 1; l >= 0; l--)
+								EXPAND_LW(rvRegs[l], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[30]);
+						}
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* ADDIV: Move a[] operands */
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[2], rvRegs[1], 0);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* Load a[] operands */
+						for(int l = XVEC_AVAIL_REGS - 1; l >= 0; l--)
+							EXPAND_LI(rvRegs[l], getXAIdxAt(i));
+						/* Move c[] indexer to register 31 */
+						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
+						/* Move b[] indexer to register 30 */
+						EXPAND_OP(RISCV::ADD, rvRegs[30], getXBIdxAt(i), rvRegs[0]);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
+						/* ADDIV: Save general purpose registers */
+						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
+						/* Isolation of vector operation with 3 NOPs */
+						EXPAND_3NOP();
 						break;
 				}
 				break;

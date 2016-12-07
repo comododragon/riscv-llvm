@@ -5,6 +5,8 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineModuleInfoImpls.h"
 
+#define XVEC_AVAIL_REGS 29
+
 namespace llvm {
 
 class RISCVVectorInstrBuilder {
@@ -28,7 +30,7 @@ private:
 	unsigned int rvRegs[32] = {
 		RISCV::zero, RISCV::ra, RISCV::sp, RISCV::gp, RISCV::tp, RISCV::t0, RISCV::t1, RISCV::t2,
 		RISCV::s0, RISCV::s1, RISCV::a0, RISCV::a1, RISCV::a2, RISCV::a3, RISCV::a4, RISCV::a5,
-		RISCV::a7, RISCV::a7, RISCV::s2, RISCV::s3, RISCV::s4, RISCV::s5, RISCV::s6, RISCV::s7,
+		RISCV::a6, RISCV::a7, RISCV::s2, RISCV::s3, RISCV::s4, RISCV::s5, RISCV::s6, RISCV::s7,
 		RISCV::s8, RISCV::s9, RISCV::s10, RISCV::s11, RISCV::t3, RISCV::t4, RISCV::t5, RISCV::t6
 	};
 
