@@ -1,3 +1,15 @@
+//===- RISCVInstrInfoXvec.td - Xvec RISCV instructions --------*- tblgen-*-===//
+//
+//                     The LLVM Compiler Infrastructure
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
+
+//===----------------------------------------------------------------------===//
+// Register-register arith operations
+//===----------------------------------------------------------------------===//
 def ADDV : InstR<"addv" , 0b0001011, 0b0000000, 0b000, add   , GR32, GR32>, Requires<[IsRV32]>;
 def SUBV : InstR<"subv" , 0b0001011, 0b0100000, 0b000, sub   , GR32, GR32>, Requires<[IsRV32]>;
 def SLLV : InstR<"sllv" , 0b0001011, 0b0000000, 0b001, shl   , GR32, GR32>, Requires<[IsRV32]>;
@@ -8,7 +20,11 @@ def SRLV : InstR<"srlv" , 0b0001011, 0b0000000, 0b101, srl   , GR32, GR32>, Requ
 def SRAV : InstR<"srav" , 0b0001011, 0b0100000, 0b101, sra   , GR32, GR32>, Requires<[IsRV32]>;
 def ORV  : InstR<"orv"  , 0b0001011, 0b0000000, 0b110, or    , GR32, GR32>;
 def ANDV : InstR<"andv" , 0b0001011, 0b0000000, 0b111, and   , GR32, GR32>;
-//Integer arithmetic register-immediate
+
+//===----------------------------------------------------------------------===//
+// (Register-)Immediate arith operations
+//===----------------------------------------------------------------------===//
+
 def ADDIV: InstI<"addiv", 0b0101011, 0b000       , add, GR32, GR32, imm32sx12>, Requires<[IsRV32]>;
 def XORIV: InstI<"xoriv", 0b0101011, 0b100       , xor, GR32, GR32, imm32sx12>;
 def ORIV : InstI<"oriv" , 0b0101011, 0b110       , or , GR32, GR32, imm32sx12>;

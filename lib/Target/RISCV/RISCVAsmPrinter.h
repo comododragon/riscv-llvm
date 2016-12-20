@@ -33,8 +33,7 @@ public:
   const char *getPassName() const override {
     return "RISCV Assembly Printer";
   }
-	unsigned int checkForVectorPattern(const MachineBasicBlock &MBB);
-	void EmitFunctionBody();
+  void EmitFunctionBody();
   void EmitInstruction(const MachineInstr *MI) override;
   void EmitMachineConstantPoolValue(MachineConstantPoolValue *MCPV) override;
   void printOperand(const MachineInstr *MI, int opNum, raw_ostream &O);

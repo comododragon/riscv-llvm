@@ -23,40 +23,52 @@
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "RISCVVectorInstrBuilder.h"
-// TODO: Remover
+// TODO: Remove
 #include <iostream>
 
 using namespace llvm;
 
 void RISCVAsmPrinter::EmitFunctionBody() {
-	RISCVVectorInstrBuilder builder;
+  RISCVVectorInstrBuilder builder;
 
-	for(unsigned int i = 0; i < MF->getNumBlockIDs(); i++) {
-		MachineBasicBlock *MBB = MF->getBlockNumbered(i);
+  /* For each basic block, perform pattern matching and substitution */
+  for(unsigned int i = 0; i < MF->getNumBlockIDs(); i++) {
+    MachineBasicBlock *MBB = MF->getBlockNumbered(i);
 
-		bool rrFound = builder.checkForVectorPatternRR(*MBB);
-		bool riFound = builder.checkForVectorPatternRI(*MBB);
-		bool irFound = builder.checkForVectorPatternIR(*MBB);
-		if(rrFound || riFound || irFound) {
-			std::cout << "Found patterns!" << std::endl;
-			for(unsigned int j = 0; j < builder.getListSize(); j++) {
-				std::cout << "Block " << j << std::endl;
-				std::cout << " class " << builder.getClassAt(j) << std::endl;
-				std::cout << " startPoint " << builder.getStartPointAt(j) << std::endl;
-				std::cout << " blockSize " << builder.getBlockSizeAt(j) << std::endl;
-				std::cout << " opcode " << builder.getOpcodeAt(j) << std::endl;
-				std::cout << " xA " << builder.getXAAt(j) << std::endl;
-				std::cout << " xB " << builder.getXBAt(j) << std::endl;
-				std::cout << " xAIdx " << builder.getXAIdxAt(j) << std::endl;
-				std::cout << " xBIdx " << builder.getXBIdxAt(j) << std::endl;
-				std::cout << " xCIdx " << builder.getXCIdxAt(j) << std::endl;
-			}
+    /* Search for RR, RI and IR patterns */
+    bool rrFound = builder.checkForVectorPatternRR(*MBB);
+    bool riFound = builder.checkForVectorPatternRI(*MBB);
+    bool irFound = builder.checkForVectorPatternIR(*MBB);
+    /* If any were found, substitute */
+    if(rrFound || riFound || irFound) {
+      // TODO: Remove
+      std::cout << "Found patterns!" << std::endl;
+      for(unsigned int j = 0; j < builder.getListSize(); j++) {
+        std::cout << "Block " << j << std::endl;
+        std::cout << " class " << builder.getClassAt(j) << std::endl;
+        std::cout << " startPoint " << builder.getStartPointAt(j) << std::endl;
+        std::cout << " blockSize " << builder.getBlockSizeAt(j) << std::endl;
+        std::cout << " opcode " << builder.getOpcodeAt(j) << std::endl;
+        std::cout << " xImm " << builder.getXImmAt(j) << std::endl;
+        std::cout << " xAIdx " << builder.getXAIdxAt(j) << std::endl;
+        std::cout << " xBIdx " << builder.getXBIdxAt(j) << std::endl;
+        std::cout << " xCIdx " << builder.getXCIdxAt(j) << std::endl;
+      }
 
-			builder.substituteAllMatches(MBB, Subtarget);
-		}
-	}
+      builder.substituteAllMatches(MBB, Subtarget);
 
-	AsmPrinter::EmitFunctionBody();
+      // TODO: Remove
+      unsigned int j = 0;
+      for(MachineBasicBlock::iterator MI = MBB->begin(); MI != MBB->end(); MI++) {
+        if(!(MI->isPseudo()))
+          j++;
+      }
+      std::cout << "Number of real ops after substitution: " << j << std::endl;
+    }
+  }
+
+  /* Proceed to standard behaviour */
+  AsmPrinter::EmitFunctionBody();
 }
 
 void RISCVAsmPrinter::EmitInstruction(const MachineInstr *MI) {
@@ -178,10 +190,16 @@ void RISCVAsmPrinter::EmitEndOfAsmFile(Module &M) {
 }
 
 bool RISCVAsmPrinter::runOnMachineFunction(MachineFunction &MF) {
+  /**
+   * Note: RISC-V did use the AsmPrinter::runOnMachineFunction() method here. Since we wanted
+   * our pattern modifications to be local, we inlined the AsmPrinter::runOnMachineFunction()
+   * body here and changed the call AsmPrinter::EmitFunctionBody() to
+   * RISCVAsmPrinter::EmitFunctionBody().
+   */
   Subtarget = &MF.getSubtarget<RISCVSubtarget>();
-	AsmPrinter::SetupMachineFunction(MF);
-	EmitFunctionBody();
-	return false;
+  AsmPrinter::SetupMachineFunction(MF);
+  EmitFunctionBody();
+  return false;
 }
 
 // Force static initialization.
