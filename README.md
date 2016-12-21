@@ -36,6 +36,7 @@ Although the RISC-V LLVM includes Clang, the RISC-V GNU Toolchain
 (https://github.com/comododragon/riscv-gnu-toolchain) is still needed to perform assembly and linking.
 
 Refer to the original repository documentation for further instructions on how to compile and use.
+The original ```README.md``` for this repository is available as ```README.orig.md```.
 
 ## Usage Information
 
