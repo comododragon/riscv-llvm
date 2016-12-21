@@ -8,7 +8,9 @@
 ## Introduction
 
 This is a fork from riscv-llvm project (https://github.com/riscv/riscv-llvm), featuring pattern
-detection and substitution for simple for loops, making the use of Xvec vector instructions.
+detection and substitution for simple for loops, making the use of Xvec vector instructions. An
+implementation of an Xvec-enabled RISC-V processor is available at
+https://github.com/comododragon/vscale.
 
 ## Licence
 
@@ -16,7 +18,7 @@ This project holds the original licence from the original project (see LICENSE f
 
 ## Instructions on Compilation and Basic LLVM Use
 
-Refer to the original repo documentation for instructions on how to compile and use.
+Refer to the original repository documentation for instructions on how to compile and use.
 
 ## Usage Information
 
