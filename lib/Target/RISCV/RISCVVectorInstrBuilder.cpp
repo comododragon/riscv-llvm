@@ -1199,6 +1199,24 @@ void RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const
 				 */
 				switch(getClassAt(i)) {
 					case RR:
+						/* Swap (restore) c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap (restore) b[] indexer register with register 30 if both are different */
+						if(getXBIdxAt(i) != rvRegs[30]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXBIdxAt(i), getXBIdxAt(i), rvRegs[30]);
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+						}
+						/* Swap (restore) a[] indexer register with register 29 if both are different */
+						if(getXAIdxAt(i) != rvRegs[29]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXAIdxAt(i), getXAIdxAt(i), rvRegs[29]);
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+						}
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Restore general purpose registers */
@@ -1231,20 +1249,44 @@ void RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const
 							for(int l = opsCur - 1; l >= 0; l--)
 								EXPAND_LW(rvRegs[l + 1], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[29]);
 						}
-						/* Move c[] indexer to register 31 */
-						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
-						/* Move b[] indexer to register 30 */
-						EXPAND_OP(RISCV::ADD, rvRegs[30], getXBIdxAt(i), rvRegs[0]);
-						/* Move a[] indexer to register 29 */
-						EXPAND_OP(RISCV::ADD, rvRegs[29], getXAIdxAt(i), rvRegs[0]);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Save general purpose registers */
 						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
+						/* Swap c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap b[] indexer register with register 30 if both are different */
+						if(getXBIdxAt(i) != rvRegs[30]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXBIdxAt(i), getXBIdxAt(i), rvRegs[30]);
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+						}
+						/* Swap a[] indexer register with register 29 if both are different */
+						if(getXAIdxAt(i) != rvRegs[29]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXAIdxAt(i), getXAIdxAt(i), rvRegs[29]);
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+						}
 						break;
 					case RI:
+						/* Swap (restore) c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap (restore) a[] indexer register with register 29 if both are different */
+						if(getXAIdxAt(i) != rvRegs[29]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXAIdxAt(i), getXAIdxAt(i), rvRegs[29]);
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+						}
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Restore general purpose registers */
@@ -1268,18 +1310,38 @@ void RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const
 							for(int l = opsCur - 1; l >= 0; l--)
 								EXPAND_LW(rvRegs[l + 1], (4 * ((XVEC_AVAIL_REGS * k) + l)), rvRegs[29]);
 						}
-						/* Move c[] indexer to register 31 */
-						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
-						/* Move a[] indexer to register 29 */
-						EXPAND_OP(RISCV::ADD, rvRegs[29], getXAIdxAt(i), rvRegs[0]);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Save general purpose registers */
 						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
+						/* Swap c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap a[] indexer register with register 29 if both are different */
+						if(getXAIdxAt(i) != rvRegs[29]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXAIdxAt(i), getXAIdxAt(i), rvRegs[29]);
+							EXPAND_OP(RISCV::XOR, rvRegs[29], rvRegs[29], getXAIdxAt(i));
+						}
 						break;
 					case IR:
+						/* Swap (restore) c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap (restore) b[] indexer register with register 30 if both are different */
+						if(getXBIdxAt(i) != rvRegs[30]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXBIdxAt(i), getXBIdxAt(i), rvRegs[30]);
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+						}
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Restore general purpose registers */
@@ -1312,16 +1374,24 @@ void RISCVVectorInstrBuilder::substituteAllMatches(MachineBasicBlock *MBB, const
 						/* Load a[] operands */
 						for(int l = XVEC_AVAIL_REGS; l > 0; l--)
 							EXPAND_LI(rvRegs[l], getXImmAt(i));
-						/* Move c[] indexer to register 31 */
-						EXPAND_OP(RISCV::ADD, rvRegs[31], getXCIdxAt(i), rvRegs[0]);
-						/* Move b[] indexer to register 30 */
-						EXPAND_OP(RISCV::ADD, rvRegs[30], getXBIdxAt(i), rvRegs[0]);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
 						/* ADDIV: Save general purpose registers */
 						EXPAND_OPIV(RISCV::ADDIV, rvRegs[3], rvRegs[1], 0);
 						/* Isolation of vector operation with 3 NOPs */
 						EXPAND_3NOP();
+						/* Swap c[] indexer register with register 31 if both are different */
+						if(getXCIdxAt(i) != rvRegs[31]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXCIdxAt(i), getXCIdxAt(i), rvRegs[31]);
+							EXPAND_OP(RISCV::XOR, rvRegs[31], rvRegs[31], getXCIdxAt(i));
+						}
+						/* Swap b[] indexer register with register 30 if both are different */
+						if(getXBIdxAt(i) != rvRegs[30]) {
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+							EXPAND_OP(RISCV::XOR, getXBIdxAt(i), getXBIdxAt(i), rvRegs[30]);
+							EXPAND_OP(RISCV::XOR, rvRegs[30], rvRegs[30], getXBIdxAt(i));
+						}
 						break;
 				}
 				break;
