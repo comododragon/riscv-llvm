@@ -19,7 +19,7 @@ This project holds the original licence from the original project (see LICENSE f
 ## Installation
 
 ```
-$ git clone -b riscv-trunk https://github.com/riscv/riscv-llvm.git
+$ git clone -b riscv-trunk https://github.com/comododragon/riscv-llvm.git
 $ git submodule update --init
 $ mkdir build
 $ cd build
